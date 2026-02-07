@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <defs>
+    <linearGradient id="bg15" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="100%" style="stop-color:#2d2d44"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="400" fill="#f0f0f0"/>
+  <path d="M120 200 Q120 150 160 150 L165 150 L165 120 Q165 100 185 100 L215 100 Q235 100 235 120 L235 150 L240 150 Q280 150 280 200 Q280 250 240 250 L235 250 L235 280 Q235 300 215 300 L185 300 Q165 300 165 280 L165 250 L160 250 Q120 250 120 200 Z" fill="#2a2a4a" stroke="#1a1a2e" stroke-width="3"/>
+  <rect x="175" y="140" width="50" height="80" rx="5" fill="url(#bg15)"/>
+  <text x="200" y="175" font-family="Arial, sans-serif" font-size="14" fill="#00D4BE" text-anchor="middle">10,432</text>
+  <text x="200" y="195" font-family="Arial, sans-serif" font-size="8" fill="#888888" text-anchor="middle">STEPS</text>
+  <circle cx="200" y="160" r="3" fill="#00D4BE"/>
+  <text x="200" y="360" font-family="Arial, sans-serif" font-size="16" fill="#1a1a2e" text-anchor="middle" font-weight="bold">Fitbit Charge 5</text>
+</svg>

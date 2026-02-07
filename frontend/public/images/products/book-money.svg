@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <defs>
+    <linearGradient id="bg13" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10B981"/>
+      <stop offset="100%" style="stop-color:#059669"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="400" fill="#1a1a2e"/>
+  <rect x="100" y="60" width="200" height="280" rx="5" fill="url(#bg13)" stroke="#047857" stroke-width="3"/>
+  <rect x="100" y="60" width="15" height="280" fill="#065F46"/>
+  <text x="200" y="130" font-family="Arial, sans-serif" font-size="14" fill="#ffffff" text-anchor="middle">THE</text>
+  <text x="200" y="160" font-family="Arial, sans-serif" font-size="20" fill="#ffffff" text-anchor="middle" font-weight="bold">PSYCHOLOGY</text>
+  <text x="200" y="190" font-family="Arial, sans-serif" font-size="14" fill="#ffffff" text-anchor="middle">OF</text>
+  <text x="200" y="220" font-family="Arial, sans-serif" font-size="24" fill="#FBBF24" text-anchor="middle" font-weight="bold">MONEY</text>
+  <text x="200" y="280" font-family="Arial, sans-serif" font-size="10" fill="#ffffff" text-anchor="middle">Timeless lessons on wealth</text>
+  <text x="200" y="310" font-family="Arial, sans-serif" font-size="12" fill="#ffffff" text-anchor="middle">Morgan Housel</text>
+</svg>

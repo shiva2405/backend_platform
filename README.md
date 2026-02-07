@@ -422,9 +422,6 @@ backend_platform/
 │   │   └── service/             # Business logic
 │   └── pom.xml
 │
-├── order-service/               # Order Processing (currently minimal)
-│   └── pom.xml
-│
 ├── frontend/                    # React Application
 │   ├── src/
 │   │   ├── components/          # Header, Footer, ProductCard, Loading
@@ -482,6 +479,54 @@ cat bff-service/logs/bff.log
 cat inventory-service/logs/inventory.log
 cat cart-service/logs/cart.log
 ```
+
+## Future Scope of Work
+
+### Phase 1: Critical (Must Have)
+| Feature | Description | Effort |
+|---------|-------------|--------|
+| **Database Migration** | Migrate from H2 to PostgreSQL/MySQL for production | 2-3 days |
+| **Caching Layer** | Build custom in-memory cache with LRU eviction for products, sessions | 3-4 days |
+| **Message Queue** | Async processing for orders, notifications using custom BlockingQueue | 4-5 days |
+| **Rate Limiting** | Token bucket algorithm to prevent API abuse | 2 days |
+| **Logging & Monitoring** | Structured JSON logging, correlation IDs, metrics | 2-3 days |
+
+### Phase 2: Important (Should Have)
+| Feature | Description | Effort |
+|---------|-------------|--------|
+| **Analytics Dashboard** | Sales reports, user behavior, product performance | 3-4 days |
+| **Search Engine** | Full-text search with facets, autocomplete | 3-4 days |
+| **Inventory Management** | Stock reservation, low stock alerts, batch updates | 3-4 days |
+| **Notification Service** | Email templates, in-app notifications | 2-3 days |
+| **Circuit Breaker** | Resilience pattern for service failures | 2-3 days |
+
+### Phase 3: Nice to Have
+| Feature | Description | Effort |
+|---------|-------------|--------|
+| **Recommendation Engine** | "Users who bought X also bought Y" | 4-5 days |
+| **Reviews & Ratings** | Product reviews with moderation | 2-3 days |
+| **Wishlist** | Save for later with price drop alerts | 1-2 days |
+| **Promotions Engine** | Coupons, flash sales, bundle deals | 3-4 days |
+| **Audit Trail** | Track all entity changes | 2 days |
+
+### Additional Scope Items
+| Feature | Description | Effort |
+|---------|-------------|--------|
+| **API Versioning** | URL/Header versioning for backward compatibility | 1-2 days |
+| **Service Discovery** | Custom registry for microservice registration | 3-4 days |
+| **Payment Abstraction** | Pluggable payment gateway interface | 2-3 days |
+| **Multi-Warehouse** | Support for multiple inventory locations | 3-4 days |
+| **Bulk Import/Export** | CSV/Excel import for products, orders | 2-3 days |
+| **Scheduled Jobs** | Cart abandonment reminders, report generation | 2 days |
+| **Feature Flags** | Enable/disable features without deployment | 1-2 days |
+| **A/B Testing** | Test different UI/pricing strategies | 3-4 days |
+| **Localization** | Multi-language support | 2-3 days |
+| **PDF Generation** | Invoice, order confirmation PDFs | 1-2 days |
+
+## Offline Support
+
+All product images are stored locally in `/frontend/public/images/products/` as SVG files.
+The application works completely offline without requiring internet for images.
 
 ## License
 

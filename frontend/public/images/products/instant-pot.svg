@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <defs>
+    <linearGradient id="bg9" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#c0c0c0"/>
+      <stop offset="100%" style="stop-color:#a0a0a0"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="400" fill="#f0f0f0"/>
+  <ellipse cx="200" cy="300" rx="120" ry="20" fill="#d0d0d0"/>
+  <rect x="90" y="120" width="220" height="180" rx="20" fill="url(#bg9)" stroke="#808080" stroke-width="3"/>
+  <rect x="110" y="100" width="180" height="30" rx="10" fill="#2a2a4a"/>
+  <ellipse cx="200" cy="100" rx="15" ry="8" fill="#3a3a5a"/>
+  <rect x="150" y="160" width="100" height="60" rx="5" fill="#1a1a2e"/>
+  <text x="200" y="195" font-family="Arial, sans-serif" font-size="14" fill="#00D4BE" text-anchor="middle">READY</text>
+  <circle cx="280" cy="250" r="15" fill="#FF6B35"/>
+  <text x="200" y="360" font-family="Arial, sans-serif" font-size="16" fill="#1a1a2e" text-anchor="middle" font-weight="bold">Instant Pot Duo</text>
+</svg>

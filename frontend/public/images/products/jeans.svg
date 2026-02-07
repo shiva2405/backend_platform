@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <defs>
+    <linearGradient id="bg7" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e3a5f"/>
+      <stop offset="100%" style="stop-color:#2c5282"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="400" fill="#f8f8f8"/>
+  <path d="M130 60 L140 60 L145 80 L255 80 L260 60 L270 60 L280 320 L260 320 L200 280 L140 320 L120 320 Z" fill="url(#bg7)" stroke="#1a365d" stroke-width="2"/>
+  <rect x="145" y="85" width="110" height="20" fill="#2c5282"/>
+  <line x1="200" y1="100" x2="200" y2="280" stroke="#1a365d" stroke-width="2"/>
+  <rect x="160" y="110" width="30" height="25" rx="3" fill="#1a365d" stroke="#0d2137" stroke-width="1"/>
+  <circle cx="175" cy="145" r="3" fill="#c0a060"/>
+  <text x="200" y="360" font-family="Arial, sans-serif" font-size="16" fill="#1a1a2e" text-anchor="middle" font-weight="bold">Levi's 501 Original</text>
+</svg>

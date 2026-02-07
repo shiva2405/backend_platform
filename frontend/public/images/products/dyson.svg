@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <defs>
+    <linearGradient id="bg10" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8B5CF6"/>
+      <stop offset="100%" style="stop-color:#7C3AED"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="400" fill="#f5f5f5"/>
+  <rect x="180" y="50" width="40" height="200" rx="10" fill="#c0c0c0" stroke="#a0a0a0" stroke-width="2"/>
+  <rect x="170" y="250" width="60" height="100" rx="15" fill="url(#bg10)" stroke="#6D28D9" stroke-width="2"/>
+  <circle cx="200" cy="290" r="20" fill="#1a1a2e"/>
+  <circle cx="200" cy="290" r="12" fill="#2a2a4a"/>
+  <rect x="155" y="340" width="90" height="15" rx="5" fill="#d0d0d0"/>
+  <circle cx="200" cy="100" r="8" fill="#00D4BE"/>
+  <text x="200" y="385" font-family="Arial, sans-serif" font-size="16" fill="#1a1a2e" text-anchor="middle" font-weight="bold">Dyson V15 Detect</text>
+</svg>

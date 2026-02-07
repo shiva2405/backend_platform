@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <defs>
+    <linearGradient id="bg14" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0EA5E9"/>
+      <stop offset="100%" style="stop-color:#0284C7"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="400" fill="#f5f5f5"/>
+  <ellipse cx="200" cy="320" rx="60" ry="10" fill="#d0d0d0"/>
+  <path d="M150 100 L155 80 L245 80 L250 100 L260 300 L140 300 Z" fill="url(#bg14)" stroke="#0369A1" stroke-width="2"/>
+  <ellipse cx="200" cy="80" rx="45" ry="10" fill="#c0c0c0" stroke="#a0a0a0" stroke-width="2"/>
+  <rect x="155" y="65" width="90" height="20" rx="5" fill="#1a1a2e"/>
+  <text x="200" y="200" font-family="Arial, sans-serif" font-size="24" fill="#ffffff" text-anchor="middle" font-weight="bold">YETI</text>
+  <text x="200" y="360" font-family="Arial, sans-serif" font-size="16" fill="#1a1a2e" text-anchor="middle" font-weight="bold">Yeti Rambler 20oz</text>
+</svg>
