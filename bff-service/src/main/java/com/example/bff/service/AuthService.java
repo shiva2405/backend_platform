@@ -1,74 +1,58 @@
 package com.example.bff.service;
 
-import com.example.bff.config.JwtUtil;
 import com.example.bff.dto.LoginRequest;
 import com.example.bff.dto.LoginResponse;
 import com.example.bff.dto.RegisterRequest;
-import com.example.bff.model.User;
-import com.example.bff.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.Map;
 
 @Service
 public class AuthService {
     
     private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
     
-    @Autowired
-    private UserRepository userRepository;
+    private final RestTemplate restTemplate = new RestTemplate();
     
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-    
-    @Autowired
-    private JwtUtil jwtUtil;
-    
-    @Autowired
-    private AuthenticationManager authenticationManager;
+    @Value("${identity.service.url}")
+    private String identityServiceUrl;
     
     public LoginResponse login(LoginRequest request) {
-        logger.info("Login attempt for user: {}", request.getUsername());
+        logger.info("Forwarding login request to identity service for user: {}", request.getUsername());
         
-        authenticationManager.authenticate(
-            new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<LoginRequest> entity = new HttpEntity<>(request, headers);
+        
+        ResponseEntity<LoginResponse> response = restTemplate.exchange(
+            identityServiceUrl + "/api/auth/login",
+            HttpMethod.POST,
+            entity,
+            LoginResponse.class
         );
         
-        User user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        
-        String token = jwtUtil.generateToken(user.getUsername(), user.getRole().name(), user.getId());
-        
-        logger.info("User {} logged in successfully", request.getUsername());
-        return new LoginResponse(token, user.getUsername(), user.getFullName(), user.getRole().name(), user.getId());
+        return response.getBody();
     }
     
-    public User register(RegisterRequest request) {
-        logger.info("Registration attempt for user: {}", request.getUsername());
+    public Map<String, Object> register(RegisterRequest request) {
+        logger.info("Forwarding registration request to identity service for user: {}", request.getUsername());
         
-        if (userRepository.existsByUsername(request.getUsername())) {
-            throw new RuntimeException("Username already exists");
-        }
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<RegisterRequest> entity = new HttpEntity<>(request, headers);
         
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already exists");
-        }
+        ResponseEntity<Map> response = restTemplate.exchange(
+            identityServiceUrl + "/api/auth/register",
+            HttpMethod.POST,
+            entity,
+            Map.class
+        );
         
-        User user = new User();
-        user.setUsername(request.getUsername());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setEmail(request.getEmail());
-        user.setFullName(request.getFullName());
-        user.setAddress(request.getAddress());
-        user.setPhone(request.getPhone());
-        user.setRole(User.Role.USER);
-        
-        User saved = userRepository.save(user);
-        logger.info("User {} registered successfully", request.getUsername());
-        return saved;
+        return response.getBody();
     }
 }

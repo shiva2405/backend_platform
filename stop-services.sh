@@ -2,38 +2,35 @@
 
 # E-commerce Platform Stop Script
 
-echo "Stopping all services..."
+echo "=========================================="
+echo "  Stopping ShopEase E-commerce Platform"
+echo "=========================================="
 
-# Function to stop a service
-stop_service() {
-    local name=$1
-    local pidfile="pids/${name}.pid"
-    
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NC='\033[0m'
+
+# Kill services by PID files
+for pidfile in pids/*.pid; do
     if [ -f "$pidfile" ]; then
-        local pid=$(cat "$pidfile")
-        if kill -0 $pid 2>/dev/null; then
-            echo "Stopping $name (PID: $pid)..."
-            kill $pid
-            rm "$pidfile"
-        else
-            echo "$name is not running"
-            rm "$pidfile"
+        pid=$(cat "$pidfile")
+        name=$(basename "$pidfile" .pid)
+        if kill -0 "$pid" 2>/dev/null; then
+            kill "$pid"
+            echo -e "${GREEN}Stopped $name (PID: $pid)${NC}"
         fi
-    else
-        echo "$name pid file not found"
+        rm "$pidfile"
     fi
-}
+done
 
-stop_service "inventory-service"
-stop_service "cart-service"
-stop_service "bff-service"
-stop_service "frontend"
+# Also kill by port as backup
+for port in 8080 8081 8082 8084 8085 5173; do
+    pid=$(lsof -ti:$port)
+    if [ ! -z "$pid" ]; then
+        kill -9 $pid 2>/dev/null
+        echo -e "${GREEN}Killed process on port $port${NC}"
+    fi
+done
 
-# Also try to kill by port
-echo "Cleaning up any remaining processes..."
-lsof -ti:8080 | xargs kill -9 2>/dev/null
-lsof -ti:8081 | xargs kill -9 2>/dev/null
-lsof -ti:8082 | xargs kill -9 2>/dev/null
-lsof -ti:5173 | xargs kill -9 2>/dev/null
-
-echo "All services stopped."
+echo ""
+echo -e "${GREEN}All services stopped!${NC}"

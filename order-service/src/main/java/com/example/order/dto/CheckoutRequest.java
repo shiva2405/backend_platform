@@ -1,4 +1,4 @@
-package com.example.bff.dto;
+package com.example.order.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import java.util.List;

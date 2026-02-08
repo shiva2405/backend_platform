@@ -1,7 +1,7 @@
-package com.example.bff.config;
+package com.example.identity.config;
 
-import com.example.bff.model.User;
-import com.example.bff.repository.UserRepository;
+import com.example.identity.model.User;
+import com.example.identity.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,53 +22,43 @@ public class DataInitializer implements CommandLineRunner {
     
     @Override
     public void run(String... args) {
-        // Create admin user
-        if (!userRepository.existsByUsername("admin")) {
+        if (userRepository.count() == 0) {
+            logger.info("Initializing demo users...");
+            
+            // Create admin user
             User admin = new User();
             admin.setUsername("admin");
             admin.setPassword(passwordEncoder.encode("admin123"));
-            admin.setEmail("admin@ecommerce.com");
+            admin.setEmail("admin@shopease.com");
             admin.setFullName("Admin User");
             admin.setRole(User.Role.ADMIN);
-            admin.setAddress("123 Admin Street, Tech City");
+            admin.setAddress("123 Admin Street");
             admin.setPhone("555-0100");
             userRepository.save(admin);
-            logger.info("Created admin user: admin/admin123");
-        }
-        
-        // Create demo user
-        if (!userRepository.existsByUsername("user")) {
+            
+            // Create regular user
             User user = new User();
             user.setUsername("user");
             user.setPassword(passwordEncoder.encode("user123"));
-            user.setEmail("user@ecommerce.com");
+            user.setEmail("user@example.com");
             user.setFullName("John Doe");
             user.setRole(User.Role.USER);
-            user.setAddress("456 Main Street, Shopping Town");
-            user.setPhone("555-0200");
+            user.setAddress("456 User Avenue");
+            user.setPhone("555-0101");
             userRepository.save(user);
-            logger.info("Created demo user: user/user123");
-        }
-        
-        // Create another demo user
-        if (!userRepository.existsByUsername("jane")) {
+            
+            // Create another user
             User jane = new User();
             jane.setUsername("jane");
             jane.setPassword(passwordEncoder.encode("jane123"));
-            jane.setEmail("jane@ecommerce.com");
+            jane.setEmail("jane@example.com");
             jane.setFullName("Jane Smith");
             jane.setRole(User.Role.USER);
-            jane.setAddress("789 Oak Avenue, Retail City");
-            jane.setPhone("555-0300");
+            jane.setAddress("789 Oak Lane");
+            jane.setPhone("555-0102");
             userRepository.save(jane);
-            logger.info("Created demo user: jane/jane123");
+            
+            logger.info("Demo users initialized successfully!");
         }
-        
-        logger.info("===========================================");
-        logger.info("Demo Users Created:");
-        logger.info("  Admin: admin / admin123");
-        logger.info("  User:  user / user123");
-        logger.info("  User:  jane / jane123");
-        logger.info("===========================================");
     }
 }

@@ -28,7 +28,8 @@ A full-stack e-commerce platform built with microservices architecture, featurin
 ├─────────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                          │
 │    ┌─────────────────────────────────────────────────────────────────────────────┐      │
-│    │                    BFF Service - Backend for Frontend (Port 8080)            │      │
+│    │                    BFF Service - API Gateway (Port 8080)                     │      │
+│    │                           *** STATELESS - NO DB ***                          │      │
 │    │                                                                              │      │
 │    │    ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐     │      │
 │    │    │  AuthController  │    │ ProductController│    │  CartController  │     │      │
@@ -36,228 +37,103 @@ A full-stack e-commerce platform built with microservices architecture, featurin
 │    │    └────────┬─────────┘    └────────┬─────────┘    └────────┬─────────┘     │      │
 │    │             │                       │                       │               │      │
 │    │    ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐     │      │
-│    │    │  OrderController │    │ AdminController  │    │  SecurityConfig  │     │      │
-│    │    │  /api/orders/*   │    │  /api/admin/*    │    │  JWT Filter      │     │      │
+│    │    │  OrderController │    │ AdminController  │    │ JwtAuthFilter    │     │      │
+│    │    │  /api/orders/*   │    │  /api/admin/*    │    │ (Token Validate) │     │      │
 │    │    └────────┬─────────┘    └────────┬─────────┘    └──────────────────┘     │      │
 │    │             │                       │                                       │      │
 │    │    ┌────────┴───────────────────────┴─────────────────────────────────┐     │      │
-│    │    │                         Service Layer                             │     │      │
+│    │    │              Service Layer (HTTP Clients to Microservices)        │     │      │
 │    │    │  AuthService | ProductService | CartService | OrderService        │     │      │
-│    │    └─────────────────────────────────┬────────────────────────────────┘     │      │
-│    │                                      │                                       │      │
-│    │    ┌─────────────────────────────────┴────────────────────────────────┐     │      │
-│    │    │                    DATABASE: H2 (bffdb)                           │     │      │
-│    │    │              Tables: USERS, ORDERS, ORDER_ITEMS                   │     │      │
-│    │    └──────────────────────────────────────────────────────────────────┘     │      │
+│    │    └───────────────────────────────────────────────────────────────────┘     │      │
 │    └─────────────────────────────────────────────────────────────────────────────┘      │
-│                           │                               │                              │
-│                           │ HTTP/REST                     │ HTTP/REST                    │
-│                           ▼                               ▼                              │
+│                           │           │           │           │                         │
+│                           ▼           ▼           ▼           ▼                         │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
 │                                  MICROSERVICES LAYER                                     │
-├──────────────────────────────────────────┬──────────────────────────────────────────────┤
-│                                          │                                               │
-│  ┌────────────────────────────────────┐  │  ┌────────────────────────────────────────┐  │
-│  │  Inventory Service (Port 8081)     │  │  │     Cart Service (Port 8082)           │  │
-│  │                                    │  │  │                                        │  │
-│  │  ┌──────────────────────────────┐  │  │  │  ┌──────────────────────────────────┐  │  │
-│  │  │      ProductController       │  │  │  │  │        CartController            │  │  │
-│  │  │       /api/products/*        │  │  │  │  │         /api/cart/*              │  │  │
-│  │  └──────────────┬───────────────┘  │  │  │  └──────────────┬───────────────────┘  │  │
-│  │                 │                  │  │  │                 │                      │  │
-│  │  ┌──────────────┴───────────────┐  │  │  │  ┌──────────────┴───────────────────┐  │  │
-│  │  │       ProductService         │  │  │  │  │         CartService              │  │  │
-│  │  │  - getAll(), getById()       │  │  │  │  │  - addItem(), updateQty()        │  │  │
-│  │  │  - add(), update(), delete() │  │  │  │  │  - getByUser(), clearCart()      │  │  │
-│  │  └──────────────┬───────────────┘  │  │  │  └──────────────┬───────────────────┘  │  │
-│  │                 │                  │  │  │                 │                      │  │
-│  │  ┌──────────────┴───────────────┐  │  │  │  ┌──────────────┴───────────────────┐  │  │
-│  │  │     ProductRepository        │  │  │  │  │      CartItemRepository          │  │  │
-│  │  │        (JPA)                 │  │  │  │  │           (JPA)                  │  │  │
-│  │  └──────────────┬───────────────┘  │  │  │  └──────────────┬───────────────────┘  │  │
-│  │                 │                  │  │  │                 │                      │  │
-│  │  ┌──────────────┴───────────────┐  │  │  │  ┌──────────────┴───────────────────┐  │  │
-│  │  │   DATABASE: H2 (inventorydb) │  │  │  │  │     DATABASE: H2 (cartdb)        │  │  │
-│  │  │   Table: PRODUCTS            │  │  │  │  │     Table: CART_ITEMS            │  │  │
-│  │  │   - id, name, description    │  │  │  │  │     - id, user_id, product_id    │  │  │
-│  │  │   - price, stock_quantity    │  │  │  │  │     - quantity, product_name     │  │  │
-│  │  │   - category, image_url      │  │  │  │  │     - price                      │  │  │
-│  │  │   - rating, review_count     │  │  │  │  │                                  │  │  │
-│  │  └──────────────────────────────┘  │  │  │  └──────────────────────────────────┘  │  │
-│  └────────────────────────────────────┘  │  └────────────────────────────────────────┘  │
-│                                          │                                               │
-└──────────────────────────────────────────┴───────────────────────────────────────────────┘
+├─────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                          │
+│  ┌──────────────────────┐  ┌──────────────────────┐  ┌──────────────────────┐           │
+│  │  Identity Service    │  │  Inventory Service   │  │    Cart Service      │           │
+│  │     (Port 8084)      │  │     (Port 8081)      │  │    (Port 8082)       │           │
+│  │                      │  │                      │  │                      │           │
+│  │  /api/auth/login     │  │  /api/products/*     │  │  /api/cart/*         │           │
+│  │  /api/auth/register  │  │                      │  │                      │           │
+│  │  /api/auth/validate  │  │                      │  │                      │           │
+│  │  /api/users/*        │  │                      │  │                      │           │
+│  │                      │  │                      │  │                      │           │
+│  │  ┌────────────────┐  │  │  ┌────────────────┐  │  │  ┌────────────────┐  │           │
+│  │  │ H2: identitydb │  │  │  │ H2: inventorydb│  │  │  │  H2: cartdb    │  │           │
+│  │  │ - USERS        │  │  │  │ - PRODUCTS     │  │  │  │ - CART_ITEMS   │  │           │
+│  │  └────────────────┘  │  │  └────────────────┘  │  │  └────────────────┘  │           │
+│  └──────────────────────┘  └──────────────────────┘  └──────────────────────┘           │
+│                                                                                          │
+│  ┌──────────────────────┐                                                               │
+│  │    Order Service     │                                                               │
+│  │     (Port 8085)      │                                                               │
+│  │                      │                                                               │
+│  │  /api/orders/*       │                                                               │
+│  │  /api/orders/checkout│                                                               │
+│  │                      │                                                               │
+│  │  ┌────────────────┐  │                                                               │
+│  │  │  H2: orderdb   │  │                                                               │
+│  │  │ - ORDERS       │  │                                                               │
+│  │  │ - ORDER_ITEMS  │  │                                                               │
+│  │  └────────────────┘  │                                                               │
+│  └──────────────────────┘                                                               │
+│                                                                                          │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Database Architecture
+## Service Overview
 
-**Each microservice has its own independent H2 in-memory database:**
-
-| Service | Port | Database | JDBC URL | Tables |
-|---------|------|----------|----------|--------|
-| BFF Service | 8080 | bffdb | `jdbc:h2:mem:bffdb` | USERS, ORDERS, ORDER_ITEMS |
-| Inventory Service | 8081 | inventorydb | `jdbc:h2:mem:inventorydb` | PRODUCTS |
-| Cart Service | 8082 | cartdb | `jdbc:h2:mem:cartdb` | CART_ITEMS |
-
-### Database Schema
-
-```sql
--- BFF Service (bffdb)
-CREATE TABLE users (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    email VARCHAR(100),
-    full_name VARCHAR(100),
-    role VARCHAR(20) DEFAULT 'USER',
-    address VARCHAR(255),
-    phone VARCHAR(20)
-);
-
-CREATE TABLE orders (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    user_id BIGINT,
-    total_amount DECIMAL(10,2),
-    status VARCHAR(20) DEFAULT 'PENDING',
-    shipping_address VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE order_items (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    order_id BIGINT,
-    product_id BIGINT,
-    product_name VARCHAR(255),
-    quantity INT,
-    price DECIMAL(10,2),
-    FOREIGN KEY (order_id) REFERENCES orders(id)
-);
-
--- Inventory Service (inventorydb)
-CREATE TABLE products (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    price DECIMAL(10,2) NOT NULL,
-    stock_quantity INT DEFAULT 0,
-    category VARCHAR(100),
-    image_url VARCHAR(500),
-    rating DECIMAL(2,1) DEFAULT 0,
-    review_count INT DEFAULT 0
-);
-
--- Cart Service (cartdb)
-CREATE TABLE cart_items (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    user_id BIGINT NOT NULL,
-    product_id BIGINT NOT NULL,
-    product_name VARCHAR(255),
-    price DECIMAL(10,2),
-    quantity INT DEFAULT 1,
-    UNIQUE(user_id, product_id)
-);
-```
+| Service | Port | Description | Database |
+|---------|------|-------------|----------|
+| **BFF Service** | 8080 | API Gateway - Routes & orchestrates requests | None (Stateless) |
+| **Identity Service** | 8084 | Authentication, Users, JWT | H2: identitydb |
+| **Inventory Service** | 8081 | Products, Stock Management | H2: inventorydb |
+| **Cart Service** | 8082 | Shopping Cart Operations | H2: cartdb |
+| **Order Service** | 8085 | Order Processing, Checkout | H2: orderdb |
+| **Frontend** | 5173 | React SPA | N/A |
 
 ## Service Communication Flow
 
-### Flow 1: User Login
+### Login Flow
 ```
-┌────────┐    ┌─────────────┐    ┌─────────────┐
-│Frontend│───▶│BFF /api/auth│───▶│  H2 bffdb   │
-│        │    │   /login    │    │   USERS     │
-└────────┘    └─────────────┘    └─────────────┘
-     ▲              │
-     │              │ JWT Token
-     └──────────────┘
-```
-
-### Flow 2: Browse Products
-```
-┌────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│Frontend│───▶│BFF /api/    │───▶│ Inventory   │───▶│H2 inventorydb│
-│        │    │  products   │    │ :8081       │    │  PRODUCTS   │
-└────────┘    └─────────────┘    └─────────────┘    └─────────────┘
+Frontend → BFF (8080) → Identity Service (8084)
+                              │
+                              ▼
+                        Generate JWT
+                              │
+                              ▼
+                        Return Token
 ```
 
-### Flow 3: Add to Cart
+### Add to Cart Flow
 ```
-┌────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│Frontend│───▶│BFF /api/cart│───▶│ Cart Service│───▶│ H2 cartdb   │
-│ + JWT  │    │  (POST)     │    │ :8082       │    │ CART_ITEMS  │
-└────────┘    └─────────────┘    └─────────────┘    └─────────────┘
-```
-
-### Flow 4: Checkout (Complex Multi-Service Flow)
-```
-┌────────┐                                    
-│Frontend│─────┐                              
-│ + JWT  │     │                              
-└────────┘     │                              
-               │                              
-               ▼                              
-┌──────────────────────────────────────────────────────────────────────────┐
-│                    BFF Service - Checkout Flow                            │
-│                                                                           │
-│  Step 1: Validate JWT & Get User                                          │
-│  ┌──────────────┐                                                         │
-│  │ JWT Filter   │──▶ Extract userId from token                            │
-│  └──────────────┘                                                         │
-│         │                                                                 │
-│         ▼                                                                 │
-│  Step 2: Get Cart Items                                                   │
-│  ┌──────────────┐    HTTP GET     ┌──────────────┐    ┌──────────────┐   │
-│  │ CartService  │────────────────▶│ Cart Service │───▶│ H2 cartdb    │   │
-│  │   (BFF)      │◀────────────────│   :8082      │◀───│ CART_ITEMS   │   │
-│  └──────────────┘   Cart Items    └──────────────┘    └──────────────┘   │
-│         │                                                                 │
-│         ▼                                                                 │
-│  Step 3: Validate Products & Stock                                        │
-│  ┌──────────────┐    HTTP GET     ┌──────────────┐    ┌──────────────┐   │
-│  │ProductService│────────────────▶│  Inventory   │───▶│H2 inventorydb│   │
-│  │   (BFF)      │◀────────────────│   :8081      │◀───│  PRODUCTS    │   │
-│  └──────────────┘  Product Details└──────────────┘    └──────────────┘   │
-│         │                                                                 │
-│         ▼                                                                 │
-│  Step 4: Create Order in BFF Database                                     │
-│  ┌──────────────┐                 ┌──────────────┐                        │
-│  │ OrderService │────────────────▶│  H2 bffdb    │                        │
-│  │   (BFF)      │                 │ ORDERS +     │                        │
-│  └──────────────┘                 │ ORDER_ITEMS  │                        │
-│         │                         └──────────────┘                        │
-│         ▼                                                                 │
-│  Step 5: Clear User's Cart                                                │
-│  ┌──────────────┐   HTTP DELETE   ┌──────────────┐    ┌──────────────┐   │
-│  │ CartService  │────────────────▶│ Cart Service │───▶│ H2 cartdb    │   │
-│  │   (BFF)      │                 │   :8082      │    │ CART_ITEMS   │   │
-│  └──────────────┘                 └──────────────┘    └──────────────┘   │
-│         │                                                                 │
-│         ▼                                                                 │
-│  Step 6: Return Order Confirmation                                        │
-│  ┌──────────────┐                                                         │
-│  │ Response     │──▶ { orderId, status, total, items[] }                  │
-│  └──────────────┘                                                         │
-└──────────────────────────────────────────────────────────────────────────┘
+Frontend → BFF (8080) → Cart Service (8082)
+               │              │
+               │              ▼
+               │        Add Cart Item
+               │              │
+               ▼              ▼
+         Inventory (8081)  Return Cart
+         (Get Product Info)
 ```
 
-## Accessing H2 Database Console
-
-Each service exposes an H2 web console for database visualization:
-
-| Service | Console URL | JDBC URL | Username | Password |
-|---------|-------------|----------|----------|----------|
-| BFF | http://localhost:8080/h2-console | `jdbc:h2:mem:bffdb` | sa | password |
-| Inventory | http://localhost:8081/h2-console | `jdbc:h2:mem:inventorydb` | sa | password |
-| Cart | http://localhost:8082/h2-console | `jdbc:h2:mem:cartdb` | sa | password |
-
-### Steps to Access:
-1. Open the console URL in browser
-2. Set Driver Class: `org.h2.Driver`
-3. Enter JDBC URL from table above
-4. Username: `sa`
-5. Password: `password`
-6. Click Connect
+### Checkout Flow
+```
+Frontend → BFF (8080) ─┬─→ Cart Service (8082) [Get Cart Items]
+                       │
+                       └─→ Order Service (8085) [Create Order]
+                                   │
+                                   ▼
+                             Cart Service (8082) [Clear Cart]
+                                   │
+                                   ▼
+                             Return Order
+```
 
 ## Features
 
@@ -314,24 +190,32 @@ cd backend_platform
 Or start services manually:
 
 ```bash
-# Terminal 1: Inventory Service
+# Terminal 1: Identity Service
+cd identity-service && mvn spring-boot:run
+
+# Terminal 2: Inventory Service
 cd inventory-service && mvn spring-boot:run
 
-# Terminal 2: Cart Service
+# Terminal 3: Cart Service
 cd cart-service && mvn spring-boot:run
 
-# Terminal 3: BFF Service
+# Terminal 4: Order Service
+cd order-service && mvn spring-boot:run
+
+# Terminal 5: BFF Service (Start last)
 cd bff-service && mvn spring-boot:run
 
-# Terminal 4: Frontend
+# Terminal 6: Frontend
 cd frontend && npm install && npm run dev
 ```
 
 3. **Access the application**
 - Frontend: http://localhost:5173
 - BFF Swagger: http://localhost:8080/swagger-ui.html
+- Identity Swagger: http://localhost:8084/swagger-ui.html
 - Inventory Swagger: http://localhost:8081/swagger-ui.html
 - Cart Swagger: http://localhost:8082/swagger-ui.html
+- Order Swagger: http://localhost:8085/swagger-ui.html
 
 ### Demo Credentials
 
@@ -343,116 +227,112 @@ cd frontend && npm install && npm run dev
 
 ## API Endpoints
 
-### BFF Service (Port 8080)
+### BFF Service (Port 8080) - API Gateway
 
 #### Authentication
 - `POST /api/auth/login` - User login
 - `POST /api/auth/register` - User registration
 
 #### Products (Public)
-- `GET /api/products` - Get all products
-- `GET /api/products/{id}` - Get product by ID
-- `GET /api/products/search?q=query` - Search products
-- `GET /api/products/category/{category}` - Get by category
+- `GET /api/products` - List all products
+- `GET /api/products/{id}` - Get product details
+- `GET /api/products/category/{category}` - Products by category
 
 #### Cart (Authenticated)
-- `GET /api/cart` - Get cart items
+- `GET /api/cart` - Get user's cart
 - `POST /api/cart` - Add to cart
-- `PUT /api/cart/{itemId}` - Update quantity
-- `DELETE /api/cart/{itemId}` - Remove item
-- `DELETE /api/cart` - Clear cart
+- `PUT /api/cart/{id}` - Update quantity
+- `DELETE /api/cart/{id}` - Remove item
 
 #### Orders (Authenticated)
 - `POST /api/orders/checkout` - Place order
 - `GET /api/orders` - Get user's orders
 - `GET /api/orders/{id}` - Get order details
 
-#### Admin (Admin Role Required)
+#### Admin (ADMIN role only)
 - `POST /api/admin/products` - Add product
 - `PUT /api/admin/products/{id}` - Update product
 - `DELETE /api/admin/products/{id}` - Delete product
-- `GET /api/admin/orders` - Get all orders
+- `GET /api/admin/orders` - All orders
 - `PUT /api/admin/orders/{id}/status` - Update order status
-
-### Inventory Service (Port 8081)
-- `GET /api/products` - Get all products
-- `GET /api/products/{id}` - Get product by ID
-- `POST /api/products` - Add product
-- `PUT /api/products/{id}` - Update product
-- `DELETE /api/products/{id}` - Delete product
-
-### Cart Service (Port 8082)
-- `GET /api/cart` - Get all cart items
-- `GET /api/cart/user/{userId}` - Get cart by user
-- `POST /api/cart` - Add to cart
-- `PUT /api/cart/{id}` - Update item
-- `DELETE /api/cart/{id}` - Remove item
-- `DELETE /api/cart/user/{userId}` - Clear user's cart
 
 ## Project Structure
 
 ```
 backend_platform/
-├── bff-service/                 # Backend for Frontend (API Gateway)
+├── bff-service/                 # API Gateway (Stateless)
 │   ├── src/main/java/com/example/bff/
 │   │   ├── config/              # Security, JWT, CORS config
 │   │   ├── controller/          # REST controllers
 │   │   ├── dto/                 # Data Transfer Objects
-│   │   ├── model/               # JPA entities (User, Order)
-│   │   ├── repository/          # JPA repositories
-│   │   └── service/             # Business logic + HTTP clients
+│   │   └── service/             # HTTP clients to microservices
+│   └── pom.xml
+│
+├── identity-service/            # Authentication & User Management
+│   ├── src/main/java/com/example/identity/
+│   │   ├── config/              # Security, JWT util
+│   │   ├── controller/          # Auth & User controllers
+│   │   ├── dto/                 # DTOs
+│   │   ├── model/               # User entity
+│   │   ├── repository/          # User repository
+│   │   └── service/             # Auth service
 │   └── pom.xml
 │
 ├── inventory-service/           # Product & Stock Management
 │   ├── src/main/java/com/example/inventoryservice/
-│   │   ├── config/              # Data initializer (seeds products)
-│   │   ├── controller/          # REST controllers
+│   │   ├── config/              # Data initializer
+│   │   ├── controller/          # Product controller
 │   │   ├── dto/                 # DTOs
-│   │   ├── model/               # JPA entities (Product)
-│   │   ├── repository/          # JPA repositories
-│   │   └── service/             # Business logic
+│   │   ├── model/               # Product entity
+│   │   ├── repository/          # Product repository
+│   │   └── service/             # Product service
 │   └── pom.xml
 │
 ├── cart-service/                # Shopping Cart Service
 │   ├── src/main/java/com/example/cartservice/
-│   │   ├── controller/          # REST controllers
+│   │   ├── controller/          # Cart controller
 │   │   ├── dto/                 # DTOs
-│   │   ├── model/               # JPA entities (CartItem)
-│   │   ├── repository/          # JPA repositories
-│   │   └── service/             # Business logic
+│   │   ├── model/               # CartItem entity
+│   │   ├── repository/          # Cart repository
+│   │   └── service/             # Cart service
+│   └── pom.xml
+│
+├── order-service/               # Order Processing Service
+│   ├── src/main/java/com/example/order/
+│   │   ├── config/              # CORS config
+│   │   ├── controller/          # Order controller
+│   │   ├── dto/                 # DTOs
+│   │   ├── model/               # Order, OrderItem entities
+│   │   ├── repository/          # Order repository
+│   │   └── service/             # Order service
 │   └── pom.xml
 │
 ├── frontend/                    # React Application
 │   ├── src/
-│   │   ├── components/          # Header, Footer, ProductCard, Loading
+│   │   ├── components/          # Header, Footer, ProductCard
 │   │   ├── context/             # AuthContext, CartContext
-│   │   ├── pages/               # Home, Login, Cart, Orders, Admin, etc.
+│   │   ├── pages/               # Home, Login, Cart, Orders
 │   │   ├── services/            # api.js (Axios instance)
-│   │   ├── index.css            # Tailwind + custom styles
-│   │   └── App.jsx              # Routes
-│   ├── package.json
-│   └── tailwind.config.js
+│   │   └── index.css            # Tailwind + custom styles
+│   ├── public/images/products/  # Local SVG product images
+│   └── package.json
 │
 ├── start-services.sh            # Start all services script
 ├── stop-services.sh             # Stop all services script
-├── test_all_services.sh         # Test script
 └── README.md
 ```
 
-## Sample Products
+## Offline Support
 
-The inventory service automatically seeds 15 sample products across 5 categories:
-- Electronics (iPhone, MacBook, Samsung, Sony headphones, iPad)
-- Clothing (Nike shoes, Levi's jeans, North Face jacket)
-- Home & Kitchen (Instant Pot, Dyson vacuum, KitchenAid mixer)
-- Books (Atomic Habits, Psychology of Money)
-- Sports & Outdoors (Yeti tumbler, Fitbit)
+All product images are stored locally in `/frontend/public/images/products/` as SVG files.
+The application works completely offline without requiring internet for images.
 
 ## Security
 
-- JWT-based authentication
+- JWT-based authentication (issued by Identity Service)
 - Role-based access control (USER, ADMIN)
 - Password encryption with BCrypt
+- Stateless API Gateway (validates JWT only)
 - CORS configuration for frontend
 
 ## Stopping Services
@@ -473,60 +353,14 @@ lsof -ti:8080 | xargs kill -9
 ```
 
 ### Service not starting
-Check the logs in the `logs/` directory:
+Check the logs:
 ```bash
-cat bff-service/logs/bff.log
-cat inventory-service/logs/inventory.log
-cat cart-service/logs/cart.log
+cat logs/bff.log
+cat logs/identity.log
+cat logs/inventory.log
+cat logs/cart.log
+cat logs/order.log
 ```
-
-## Future Scope of Work
-
-### Phase 1: Critical (Must Have)
-| Feature | Description | Effort |
-|---------|-------------|--------|
-| **Database Migration** | Migrate from H2 to PostgreSQL/MySQL for production | 2-3 days |
-| **Caching Layer** | Build custom in-memory cache with LRU eviction for products, sessions | 3-4 days |
-| **Message Queue** | Async processing for orders, notifications using custom BlockingQueue | 4-5 days |
-| **Rate Limiting** | Token bucket algorithm to prevent API abuse | 2 days |
-| **Logging & Monitoring** | Structured JSON logging, correlation IDs, metrics | 2-3 days |
-
-### Phase 2: Important (Should Have)
-| Feature | Description | Effort |
-|---------|-------------|--------|
-| **Analytics Dashboard** | Sales reports, user behavior, product performance | 3-4 days |
-| **Search Engine** | Full-text search with facets, autocomplete | 3-4 days |
-| **Inventory Management** | Stock reservation, low stock alerts, batch updates | 3-4 days |
-| **Notification Service** | Email templates, in-app notifications | 2-3 days |
-| **Circuit Breaker** | Resilience pattern for service failures | 2-3 days |
-
-### Phase 3: Nice to Have
-| Feature | Description | Effort |
-|---------|-------------|--------|
-| **Recommendation Engine** | "Users who bought X also bought Y" | 4-5 days |
-| **Reviews & Ratings** | Product reviews with moderation | 2-3 days |
-| **Wishlist** | Save for later with price drop alerts | 1-2 days |
-| **Promotions Engine** | Coupons, flash sales, bundle deals | 3-4 days |
-| **Audit Trail** | Track all entity changes | 2 days |
-
-### Additional Scope Items
-| Feature | Description | Effort |
-|---------|-------------|--------|
-| **API Versioning** | URL/Header versioning for backward compatibility | 1-2 days |
-| **Service Discovery** | Custom registry for microservice registration | 3-4 days |
-| **Payment Abstraction** | Pluggable payment gateway interface | 2-3 days |
-| **Multi-Warehouse** | Support for multiple inventory locations | 3-4 days |
-| **Bulk Import/Export** | CSV/Excel import for products, orders | 2-3 days |
-| **Scheduled Jobs** | Cart abandonment reminders, report generation | 2 days |
-| **Feature Flags** | Enable/disable features without deployment | 1-2 days |
-| **A/B Testing** | Test different UI/pricing strategies | 3-4 days |
-| **Localization** | Multi-language support | 2-3 days |
-| **PDF Generation** | Invoice, order confirmation PDFs | 1-2 days |
-
-## Offline Support
-
-All product images are stored locally in `/frontend/public/images/products/` as SVG files.
-The application works completely offline without requiring internet for images.
 
 ## License
 

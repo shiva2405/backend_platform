@@ -1,123 +1,107 @@
 package com.example.bff.service;
 
-import com.example.bff.dto.*;
-import com.example.bff.model.Order;
-import com.example.bff.model.OrderItem;
-import com.example.bff.repository.OrderRepository;
+import com.example.bff.dto.CartItemDTO;
+import com.example.bff.dto.CheckoutRequest;
+import com.example.bff.dto.OrderDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
+import java.util.Map;
 
 @Service
 public class OrderService {
     
     private static final Logger logger = LoggerFactory.getLogger(OrderService.class);
     
-    @Autowired
-    private OrderRepository orderRepository;
+    private final RestTemplate restTemplate = new RestTemplate();
+    
+    @Value("${order.service.url}")
+    private String orderServiceUrl;
     
     @Autowired
     private CartService cartService;
     
-    @Autowired
-    private ProductService productService;
-    
-    @Transactional
     public OrderDTO checkout(Long userId, CheckoutRequest request) {
         logger.info("Processing checkout for user: {}", userId);
         
+        // Fetch cart items from cart service
         List<CartItemDTO> cartItems = cartService.getCartItems(userId);
-        if (cartItems.isEmpty()) {
+        if (cartItems == null || cartItems.isEmpty()) {
             throw new RuntimeException("Cart is empty");
         }
         
-        // Calculate total
-        double total = cartItems.stream()
-                .mapToDouble(item -> item.getPrice() * item.getQuantity())
-                .sum();
+        // Add cart items to the request
+        request.setCartItems(cartItems);
         
-        // Create order
-        Order order = new Order();
-        order.setUserId(userId);
-        order.setOrderDate(LocalDateTime.now());
-        order.setStatus(Order.OrderStatus.PENDING);
-        order.setTotalAmount(total);
-        order.setShippingAddress(request.getShippingAddress());
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-User-Id", userId.toString());
+        HttpEntity<CheckoutRequest> entity = new HttpEntity<>(request, headers);
         
-        // Add order items
-        for (CartItemDTO cartItem : cartItems) {
-            OrderItem orderItem = new OrderItem();
-            orderItem.setProductId(cartItem.getProductId());
-            orderItem.setProductName(cartItem.getProductName());
-            orderItem.setQuantity(cartItem.getQuantity());
-            orderItem.setPrice(cartItem.getPrice());
-            order.addItem(orderItem);
-        }
+        ResponseEntity<OrderDTO> response = restTemplate.exchange(
+            orderServiceUrl + "/api/orders/checkout",
+            HttpMethod.POST,
+            entity,
+            OrderDTO.class
+        );
         
-        Order saved = orderRepository.save(order);
-        
-        // Clear cart after successful order
-        cartService.clearCart(userId);
-        
-        logger.info("Order {} created successfully for user {}", saved.getId(), userId);
-        return mapToOrderDTO(saved);
+        return response.getBody();
     }
     
     public List<OrderDTO> getUserOrders(Long userId) {
-        logger.info("Fetching orders for user: {}", userId);
-        return orderRepository.findByUserIdOrderByOrderDateDesc(userId)
-                .stream()
-                .map(this::mapToOrderDTO)
-                .collect(Collectors.toList());
+        logger.info("Fetching orders from order service for user: {}", userId);
+        
+        ResponseEntity<List<OrderDTO>> response = restTemplate.exchange(
+            orderServiceUrl + "/api/orders/user/" + userId,
+            HttpMethod.GET,
+            null,
+            new ParameterizedTypeReference<List<OrderDTO>>() {}
+        );
+        
+        return response.getBody();
     }
     
-    public Optional<OrderDTO> getOrderById(Long orderId) {
-        return orderRepository.findById(orderId).map(this::mapToOrderDTO);
+    public OrderDTO getOrderById(Long orderId) {
+        ResponseEntity<OrderDTO> response = restTemplate.exchange(
+            orderServiceUrl + "/api/orders/" + orderId,
+            HttpMethod.GET,
+            null,
+            OrderDTO.class
+        );
+        return response.getBody();
     }
     
     public List<OrderDTO> getAllOrders() {
-        return orderRepository.findAllByOrderByOrderDateDesc()
-                .stream()
-                .map(this::mapToOrderDTO)
-                .collect(Collectors.toList());
+        ResponseEntity<List<OrderDTO>> response = restTemplate.exchange(
+            orderServiceUrl + "/api/orders",
+            HttpMethod.GET,
+            null,
+            new ParameterizedTypeReference<List<OrderDTO>>() {}
+        );
+        return response.getBody();
     }
     
     public OrderDTO updateOrderStatus(Long orderId, String status) {
         logger.info("Updating order {} status to {}", orderId, status);
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
         
-        order.setStatus(Order.OrderStatus.valueOf(status));
-        Order saved = orderRepository.save(order);
-        return mapToOrderDTO(saved);
-    }
-    
-    private OrderDTO mapToOrderDTO(Order order) {
-        OrderDTO dto = new OrderDTO();
-        dto.setId(order.getId());
-        dto.setUserId(order.getUserId());
-        dto.setOrderDate(order.getOrderDate());
-        dto.setStatus(order.getStatus().name());
-        dto.setTotalAmount(order.getTotalAmount());
-        dto.setShippingAddress(order.getShippingAddress());
-        dto.setItems(order.getItems().stream().map(this::mapToOrderItemDTO).collect(Collectors.toList()));
-        return dto;
-    }
-    
-    private OrderItemDTO mapToOrderItemDTO(OrderItem item) {
-        OrderItemDTO dto = new OrderItemDTO();
-        dto.setId(item.getId());
-        dto.setProductId(item.getProductId());
-        dto.setProductName(item.getProductName());
-        dto.setQuantity(item.getQuantity());
-        dto.setPrice(item.getPrice());
-        return dto;
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<Map<String, String>> entity = new HttpEntity<>(Map.of("status", status), headers);
+        
+        ResponseEntity<OrderDTO> response = restTemplate.exchange(
+            orderServiceUrl + "/api/orders/" + orderId + "/status",
+            HttpMethod.PUT,
+            entity,
+            OrderDTO.class
+        );
+        
+        return response.getBody();
     }
 }

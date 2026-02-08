@@ -1,7 +1,7 @@
-package com.example.bff.service;
+package com.example.identity.service;
 
-import com.example.bff.model.User;
-import com.example.bff.repository.UserRepository;
+import com.example.identity.model.User;
+import com.example.identity.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 import java.util.Collections;
 
 @Service
-public class CustomUserDetailsService implements UserDetailsService {
+public class UserDetailsServiceImpl implements UserDetailsService {
     
     @Autowired
     private UserRepository userRepository;

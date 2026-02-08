@@ -1,6 +1,6 @@
-package com.example.bff.repository;
+package com.example.identity.repository;
 
-import com.example.bff.model.User;
+import com.example.identity.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

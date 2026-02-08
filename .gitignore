@@ -95,3 +95,7 @@ dist-ssr/
 
 # Test output
 test-output/
+
+# Local development files (not for Git)
+LOCAL_*.md
+pids/

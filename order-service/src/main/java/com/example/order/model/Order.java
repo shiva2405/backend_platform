@@ -1,4 +1,4 @@
-package com.example.bff.model;
+package com.example.order.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
@@ -32,7 +32,7 @@ public class Order {
     private List<OrderItem> items = new ArrayList<>();
     
     public enum OrderStatus {
-        PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED
+        PENDING, CONFIRMED, PROCESSING, SHIPPED, DELIVERED, CANCELLED
     }
     
     // Getters and Setters

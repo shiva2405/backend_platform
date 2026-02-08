@@ -1,4 +1,4 @@
-package com.example.bff.dto;
+package com.example.identity.dto;
 
 public class LoginResponse {
     private String token;
