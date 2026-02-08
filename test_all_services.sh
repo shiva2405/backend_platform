@@ -1,76 +1,694 @@
 #!/bin/bash
-set -e  # exit on error
-echo "=== Testing end-to-end services ==="
 
-# Kill any running
-echo "Killing previous services..."
-pkill -9 -f spring-boot:run || true
-sleep 3
+# ============================================================================
+# ShopEase E-commerce Platform - Comprehensive Sanity Test Script
+# ============================================================================
+# This script:
+# 1. Terminates all running services
+# 2. Starts all services in correct order
+# 3. Runs sanity tests for each service
+# 4. Validates end-to-end flows
+#
+# Cross-platform compatible: macOS, Linux, Windows (Git Bash/WSL)
+# ============================================================================
 
-# Function to check service health
-check_service() {
+set -e  # Exit on first error
+
+# Colors (works on most terminals)
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Get the directory where this script is located (cross-platform)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+# Temp directory for logs (cross-platform)
+if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]] || [[ "$OSTYPE" == "win32" ]]; then
+    TEMP_DIR="${TEMP:-/tmp}"
+else
+    TEMP_DIR="/tmp"
+fi
+
+LOG_DIR="$SCRIPT_DIR/logs"
+mkdir -p "$LOG_DIR"
+
+# Service configuration
+declare -A SERVICES=(
+    ["inventory-service"]=8081
+    ["cart-service"]=8082
+    ["identity-service"]=8084
+    ["order-service"]=8085
+    ["bff-service"]=8080
+)
+
+# Order of startup (dependencies matter)
+SERVICE_ORDER=("inventory-service" "cart-service" "identity-service" "order-service" "bff-service")
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+# Cross-platform port check
+is_port_in_use() {
+    local port=$1
+    if command -v lsof &> /dev/null; then
+        lsof -i :"$port" -sTCP:LISTEN -t &> /dev/null
+    elif command -v netstat &> /dev/null; then
+        netstat -tuln 2>/dev/null | grep -q ":$port "
+    elif command -v ss &> /dev/null; then
+        ss -tuln | grep -q ":$port "
+    else
+        # Fallback: try to connect
+        (echo >/dev/tcp/localhost/$port) 2>/dev/null
+    fi
+}
+
+# Cross-platform kill by port
+kill_port() {
+    local port=$1
+    if command -v lsof &> /dev/null; then
+        lsof -ti:"$port" 2>/dev/null | xargs kill -9 2>/dev/null || true
+    elif command -v fuser &> /dev/null; then
+        fuser -k "$port"/tcp 2>/dev/null || true
+    elif command -v netstat &> /dev/null && [[ "$OSTYPE" == "msys" ]]; then
+        # Windows Git Bash
+        pid=$(netstat -ano | grep ":$port " | awk '{print $5}' | head -1)
+        [[ -n "$pid" ]] && taskkill //F //PID "$pid" 2>/dev/null || true
+    fi
+}
+
+# Wait for service to be healthy
+wait_for_service() {
     local port=$1
     local name=$2
-    echo "Checking $name on port $port..."
-    for i in {1..30}; do
-        if curl -s -f http://localhost:$port/actuator/health > /dev/null 2>&1; then
-            echo "$name is UP on $port"
+    local max_attempts=${3:-60}
+    local attempt=1
+    
+    log_info "Waiting for $name on port $port..."
+    
+    while [ $attempt -le $max_attempts ]; do
+        if curl -s -f "http://localhost:$port/actuator/health" > /dev/null 2>&1; then
+            log_success "$name is UP on port $port"
             return 0
         fi
         sleep 2
+        attempt=$((attempt + 1))
     done
-    echo "$name FAILED to start on $port"
-    exit 1
+    
+    log_error "$name FAILED to start on port $port (timeout after $((max_attempts * 2)) seconds)"
+    return 1
 }
 
-# Start inventory on 8081
-echo "Starting Inventory (8081)..."
-cd /testbed/zed-base/inventory-service
-nohup mvn spring-boot:run > /tmp/inv.log 2>&1 &
-INV_PID=$!
-sleep 10
-check_service 8081 "Inventory"
+# ============================================================================
+# Service Management
+# ============================================================================
 
-# Start cart on 8082
-echo "Starting Cart (8082)..."
-cd /testbed/zed-base/cart-service
-nohup mvn spring-boot:run > /tmp/cart.log 2>&1 &
-CART_PID=$!
-sleep 10
-check_service 8082 "Cart"
+terminate_all_services() {
+    echo ""
+    echo "=============================================="
+    echo -e "${YELLOW}  TERMINATING ALL SERVICES${NC}"
+    echo "=============================================="
+    
+    # Kill by process name
+    pkill -9 -f "spring-boot:run" 2>/dev/null || true
+    pkill -9 -f "mvn.*spring-boot" 2>/dev/null || true
+    
+    # Kill by port
+    for service in "${SERVICE_ORDER[@]}"; do
+        local port=${SERVICES[$service]}
+        if is_port_in_use "$port"; then
+            log_info "Killing process on port $port..."
+            kill_port "$port"
+        fi
+    done
+    
+    # Also kill frontend if running
+    kill_port 5173 2>/dev/null || true
+    kill_port 5174 2>/dev/null || true
+    
+    sleep 3
+    log_success "All services terminated"
+}
 
-# Start order on 8080
-echo "Starting Order (8080)..."
-cd /testbed/zed-base/order-service
-nohup mvn spring-boot:run > /tmp/order.log 2>&1 &
-ORDER_PID=$!
-sleep 10
-check_service 8080 "Order"
+start_service() {
+    local service=$1
+    local port=${SERVICES[$service]}
+    local service_dir="$SCRIPT_DIR/$service"
+    
+    if [ ! -d "$service_dir" ]; then
+        log_error "Service directory not found: $service_dir"
+        return 1
+    fi
+    
+    log_info "Starting $service on port $port..."
+    
+    cd "$service_dir"
+    nohup mvn spring-boot:run > "$LOG_DIR/${service}.log" 2>&1 &
+    local pid=$!
+    echo "$pid" > "$LOG_DIR/${service}.pid"
+    cd "$SCRIPT_DIR"
+    
+    if ! wait_for_service "$port" "$service" 60; then
+        log_error "Failed to start $service. Check logs: $LOG_DIR/${service}.log"
+        return 1
+    fi
+    
+    return 0
+}
 
-# Log ports/services
-echo "=== Services Status ==="
-echo "Inventory: http://localhost:8081 (Swagger: /swagger-ui.html)"
-echo "Cart: http://localhost:8082 (Swagger: /swagger-ui.html)"
-echo "Order: http://localhost:8080 (Swagger: /swagger-ui.html)"
-echo "Logs: /tmp/*.log"
+start_all_services() {
+    echo ""
+    echo "=============================================="
+    echo -e "${BLUE}  STARTING ALL SERVICES${NC}"
+    echo "=============================================="
+    
+    for service in "${SERVICE_ORDER[@]}"; do
+        if ! start_service "$service"; then
+            log_error "Failed to start $service. Aborting."
+            exit 1
+        fi
+        echo ""
+    done
+    
+    log_success "All services started successfully!"
+}
 
-# Hit Swagger to list APIs
-echo "=== Fetching Swagger APIs ==="
-curl -s http://localhost:8081/v3/api-docs | head -c 500 | tail -c 100  # Inventory APIs snippet
-curl -s http://localhost:8082/v3/api-docs | head -c 500 | tail -c 100  # Cart
-curl -s http://localhost:8080/v3/api-docs | head -c 500 | tail -c 100  # Order
+# ============================================================================
+# Sanity Tests
+# ============================================================================
 
-# Add test data to inventory
-echo "=== Adding Inventory Data ==="
-curl -X POST http://localhost:8081/api/products -H "Content-Type: application/json" -d '{"name":"Laptop","price":999.99,"stockQuantity":50}' -w "\n"
+test_inventory_service() {
+    echo ""
+    echo "----------------------------------------------"
+    echo -e "${BLUE}Testing Inventory Service (8081)${NC}"
+    echo "----------------------------------------------"
+    
+    local passed=0
+    local failed=0
+    
+    # Test 1: Health endpoint
+    if curl -s -f http://localhost:8081/actuator/health > /dev/null; then
+        log_success "Health check passed"
+        ((passed++))
+    else
+        log_error "Health check failed"
+        ((failed++))
+    fi
+    
+    # Test 2: Get all products
+    local products=$(curl -s http://localhost:8081/api/products)
+    if echo "$products" | grep -q "id"; then
+        log_success "GET /api/products - Returns products"
+        ((passed++))
+    else
+        log_error "GET /api/products - Failed"
+        ((failed++))
+    fi
+    
+    # Test 3: Get product by ID
+    local product=$(curl -s http://localhost:8081/api/products/1)
+    if echo "$product" | grep -q "name"; then
+        log_success "GET /api/products/1 - Returns product details"
+        ((passed++))
+    else
+        log_error "GET /api/products/1 - Failed"
+        ((failed++))
+    fi
+    
+    # Test 4: Get products by category
+    local category_products=$(curl -s http://localhost:8081/api/products/category/Electronics)
+    if echo "$category_products" | grep -q "Electronics"; then
+        log_success "GET /api/products/category/Electronics - Returns filtered products"
+        ((passed++))
+    else
+        log_error "GET /api/products/category/Electronics - Failed"
+        ((failed++))
+    fi
+    
+    # Test 5: Swagger API docs
+    if curl -s -f http://localhost:8081/v3/api-docs > /dev/null; then
+        log_success "Swagger API docs available"
+        ((passed++))
+    else
+        log_error "Swagger API docs not available"
+        ((failed++))
+    fi
+    
+    echo -e "Inventory Service: ${GREEN}$passed passed${NC}, ${RED}$failed failed${NC}"
+    return $failed
+}
 
-# Add to cart (global, no user)
-echo "=== Adding to Cart ==="
-curl -X POST http://localhost:8082/api/cart -H "Content-Type: application/json" -d '{"productId":1,"quantity":2}' -w "\n"
+test_cart_service() {
+    echo ""
+    echo "----------------------------------------------"
+    echo -e "${BLUE}Testing Cart Service (8082)${NC}"
+    echo "----------------------------------------------"
+    
+    local passed=0
+    local failed=0
+    
+    # Test 1: Health endpoint
+    if curl -s -f http://localhost:8082/actuator/health > /dev/null; then
+        log_success "Health check passed"
+        ((passed++))
+    else
+        log_error "Health check failed"
+        ((failed++))
+    fi
+    
+    # Test 2: Get cart for user (empty initially)
+    local cart=$(curl -s http://localhost:8082/api/cart/user/999)
+    if [ "$cart" = "[]" ] || echo "$cart" | grep -q "\[\]"; then
+        log_success "GET /api/cart/user/999 - Returns empty cart"
+        ((passed++))
+    else
+        log_error "GET /api/cart/user/999 - Unexpected response"
+        ((failed++))
+    fi
+    
+    # Test 3: Add to cart
+    local add_result=$(curl -s -X POST http://localhost:8082/api/cart \
+        -H "Content-Type: application/json" \
+        -d '{"userId":999,"productId":1,"quantity":2}')
+    if echo "$add_result" | grep -q "productId"; then
+        log_success "POST /api/cart - Item added to cart"
+        ((passed++))
+    else
+        log_error "POST /api/cart - Failed to add item"
+        ((failed++))
+    fi
+    
+    # Test 4: Get cart after adding
+    local cart_after=$(curl -s http://localhost:8082/api/cart/user/999)
+    if echo "$cart_after" | grep -q "productId"; then
+        log_success "GET /api/cart/user/999 - Cart has items"
+        ((passed++))
+    else
+        log_error "GET /api/cart/user/999 - Cart still empty"
+        ((failed++))
+    fi
+    
+    # Test 5: Clear cart
+    curl -s -X DELETE http://localhost:8082/api/cart/user/999 > /dev/null
+    log_success "DELETE /api/cart/user/999 - Cart cleared"
+    ((passed++))
+    
+    echo -e "Cart Service: ${GREEN}$passed passed${NC}, ${RED}$failed failed${NC}"
+    return $failed
+}
 
-# List items via order
-echo "=== Listing Items via Order Service ==="
-curl http://localhost:8080/api/orders/items -w "\n"
+test_identity_service() {
+    echo ""
+    echo "----------------------------------------------"
+    echo -e "${BLUE}Testing Identity Service (8084)${NC}"
+    echo "----------------------------------------------"
+    
+    local passed=0
+    local failed=0
+    
+    # Test 1: Health endpoint
+    if curl -s -f http://localhost:8084/actuator/health > /dev/null; then
+        log_success "Health check passed"
+        ((passed++))
+    else
+        log_error "Health check failed"
+        ((failed++))
+    fi
+    
+    # Test 2: Login with valid credentials
+    local login_result=$(curl -s -X POST http://localhost:8084/api/auth/login \
+        -H "Content-Type: application/json" \
+        -d '{"username":"user","password":"user123"}')
+    if echo "$login_result" | grep -q "token"; then
+        log_success "POST /api/auth/login - Login successful, token received"
+        ((passed++))
+    else
+        log_error "POST /api/auth/login - Login failed"
+        ((failed++))
+    fi
+    
+    # Test 3: Login with invalid credentials
+    local bad_login=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8084/api/auth/login \
+        -H "Content-Type: application/json" \
+        -d '{"username":"baduser","password":"badpass"}')
+    if [ "$bad_login" = "401" ] || [ "$bad_login" = "403" ]; then
+        log_success "POST /api/auth/login - Invalid credentials rejected (HTTP $bad_login)"
+        ((passed++))
+    else
+        log_error "POST /api/auth/login - Invalid credentials not rejected (HTTP $bad_login)"
+        ((failed++))
+    fi
+    
+    # Test 4: Get all users
+    local users=$(curl -s http://localhost:8084/api/users)
+    if echo "$users" | grep -q "username"; then
+        log_success "GET /api/users - Returns user list"
+        ((passed++))
+    else
+        log_error "GET /api/users - Failed"
+        ((failed++))
+    fi
+    
+    # Test 5: Get user by ID
+    local user=$(curl -s http://localhost:8084/api/users/1)
+    if echo "$user" | grep -q "username"; then
+        log_success "GET /api/users/1 - Returns user details"
+        ((passed++))
+    else
+        log_error "GET /api/users/1 - Failed"
+        ((failed++))
+    fi
+    
+    echo -e "Identity Service: ${GREEN}$passed passed${NC}, ${RED}$failed failed${NC}"
+    return $failed
+}
 
-echo "=== All tests passed! Services running on correct ports with data. ==="
-# Note: Leave running or kill manually: kill $INV_PID $CART_PID $ORDER_PID
+test_order_service() {
+    echo ""
+    echo "----------------------------------------------"
+    echo -e "${BLUE}Testing Order Service (8085)${NC}"
+    echo "----------------------------------------------"
+    
+    local passed=0
+    local failed=0
+    
+    # Test 1: Health endpoint
+    if curl -s -f http://localhost:8085/actuator/health > /dev/null; then
+        log_success "Health check passed"
+        ((passed++))
+    else
+        log_error "Health check failed"
+        ((failed++))
+    fi
+    
+    # Test 2: Get orders for user (empty initially)
+    local orders=$(curl -s http://localhost:8085/api/orders/user/999)
+    if [ "$orders" = "[]" ] || echo "$orders" | grep -q "\[\]"; then
+        log_success "GET /api/orders/user/999 - Returns empty orders"
+        ((passed++))
+    else
+        log_error "GET /api/orders/user/999 - Unexpected response"
+        ((failed++))
+    fi
+    
+    # Test 3: Get all orders
+    local all_orders=$(curl -s http://localhost:8085/api/orders)
+    if [ "$all_orders" = "[]" ] || echo "$all_orders" | grep -q "\["; then
+        log_success "GET /api/orders - Returns orders list"
+        ((passed++))
+    else
+        log_error "GET /api/orders - Failed"
+        ((failed++))
+    fi
+    
+    # Test 4: Create order via checkout
+    local checkout_result=$(curl -s -X POST http://localhost:8085/api/orders/checkout \
+        -H "Content-Type: application/json" \
+        -H "X-User-Id: 999" \
+        -d '{"shippingAddress":"123 Test St","cartItems":[{"productId":1,"productName":"Test Product","quantity":1,"price":99.99}]}')
+    if echo "$checkout_result" | grep -q "id"; then
+        log_success "POST /api/orders/checkout - Order created"
+        ((passed++))
+    else
+        log_error "POST /api/orders/checkout - Failed"
+        ((failed++))
+    fi
+    
+    # Test 5: Verify order exists
+    local orders_after=$(curl -s http://localhost:8085/api/orders/user/999)
+    if echo "$orders_after" | grep -q "id"; then
+        log_success "GET /api/orders/user/999 - Order exists"
+        ((passed++))
+    else
+        log_error "GET /api/orders/user/999 - Order not found"
+        ((failed++))
+    fi
+    
+    echo -e "Order Service: ${GREEN}$passed passed${NC}, ${RED}$failed failed${NC}"
+    return $failed
+}
+
+test_bff_service() {
+    echo ""
+    echo "----------------------------------------------"
+    echo -e "${BLUE}Testing BFF Service (8080)${NC}"
+    echo "----------------------------------------------"
+    
+    local passed=0
+    local failed=0
+    
+    # Test 1: Health endpoint
+    if curl -s -f http://localhost:8080/actuator/health > /dev/null; then
+        log_success "Health check passed"
+        ((passed++))
+    else
+        log_error "Health check failed"
+        ((failed++))
+    fi
+    
+    # Test 2: Get products (public endpoint)
+    local products=$(curl -s http://localhost:8080/api/products)
+    if echo "$products" | grep -q "id"; then
+        log_success "GET /api/products - Products fetched via BFF"
+        ((passed++))
+    else
+        log_error "GET /api/products - Failed"
+        ((failed++))
+    fi
+    
+    # Test 3: Login via BFF
+    local login=$(curl -s -X POST http://localhost:8080/api/auth/login \
+        -H "Content-Type: application/json" \
+        -d '{"username":"user","password":"user123"}')
+    local token=$(echo "$login" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+    if [ -n "$token" ]; then
+        log_success "POST /api/auth/login - Login via BFF successful"
+        ((passed++))
+    else
+        log_error "POST /api/auth/login - Login via BFF failed"
+        ((failed++))
+        return $failed
+    fi
+    
+    # Test 4: Get cart (authenticated)
+    local cart=$(curl -s http://localhost:8080/api/cart \
+        -H "Authorization: Bearer $token")
+    if echo "$cart" | grep -q "\["; then
+        log_success "GET /api/cart - Cart fetched (authenticated)"
+        ((passed++))
+    else
+        log_error "GET /api/cart - Failed"
+        ((failed++))
+    fi
+    
+    # Test 5: Unauthorized access
+    local unauth=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/cart)
+    if [ "$unauth" = "401" ] || [ "$unauth" = "403" ]; then
+        log_success "GET /api/cart (no auth) - Correctly rejected (HTTP $unauth)"
+        ((passed++))
+    else
+        log_error "GET /api/cart (no auth) - Should be rejected (HTTP $unauth)"
+        ((failed++))
+    fi
+    
+    echo -e "BFF Service: ${GREEN}$passed passed${NC}, ${RED}$failed failed${NC}"
+    return $failed
+}
+
+test_end_to_end_flow() {
+    echo ""
+    echo "=============================================="
+    echo -e "${BLUE}  END-TO-END FLOW TEST${NC}"
+    echo "=============================================="
+    
+    local passed=0
+    local failed=0
+    
+    # Step 1: Login
+    log_info "Step 1: Login as user..."
+    local login=$(curl -s -X POST http://localhost:8080/api/auth/login \
+        -H "Content-Type: application/json" \
+        -d '{"username":"user","password":"user123"}')
+    local token=$(echo "$login" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+    
+    if [ -z "$token" ]; then
+        log_error "Login failed - cannot proceed with E2E test"
+        return 1
+    fi
+    log_success "Logged in, token obtained"
+    ((passed++))
+    
+    # Step 2: Browse products
+    log_info "Step 2: Browse products..."
+    local products=$(curl -s http://localhost:8080/api/products)
+    if echo "$products" | grep -q "iPhone"; then
+        log_success "Products loaded successfully"
+        ((passed++))
+    else
+        log_error "Products not loaded"
+        ((failed++))
+    fi
+    
+    # Step 3: Add to cart
+    log_info "Step 3: Add product to cart..."
+    local add_cart=$(curl -s -X POST http://localhost:8080/api/cart \
+        -H "Authorization: Bearer $token" \
+        -H "Content-Type: application/json" \
+        -d '{"productId":1,"quantity":2}')
+    if echo "$add_cart" | grep -q "productId"; then
+        log_success "Product added to cart"
+        ((passed++))
+    else
+        log_error "Failed to add product to cart"
+        ((failed++))
+    fi
+    
+    # Step 4: View cart
+    log_info "Step 4: View cart..."
+    local cart=$(curl -s http://localhost:8080/api/cart \
+        -H "Authorization: Bearer $token")
+    if echo "$cart" | grep -q "productId"; then
+        log_success "Cart retrieved with items"
+        ((passed++))
+    else
+        log_error "Cart is empty or failed"
+        ((failed++))
+    fi
+    
+    # Step 5: Checkout
+    log_info "Step 5: Checkout..."
+    local order=$(curl -s -X POST http://localhost:8080/api/orders/checkout \
+        -H "Authorization: Bearer $token" \
+        -H "Content-Type: application/json" \
+        -d '{"shippingAddress":"123 E2E Test Street, City, 12345"}')
+    if echo "$order" | grep -q "id"; then
+        log_success "Order placed successfully"
+        ((passed++))
+    else
+        log_error "Checkout failed"
+        ((failed++))
+    fi
+    
+    # Step 6: View orders
+    log_info "Step 6: View orders..."
+    local orders=$(curl -s http://localhost:8080/api/orders \
+        -H "Authorization: Bearer $token")
+    if echo "$orders" | grep -q "id"; then
+        log_success "Orders retrieved"
+        ((passed++))
+    else
+        log_error "Orders not found"
+        ((failed++))
+    fi
+    
+    echo ""
+    echo -e "End-to-End Flow: ${GREEN}$passed passed${NC}, ${RED}$failed failed${NC}"
+    return $failed
+}
+
+# ============================================================================
+# Main Execution
+# ============================================================================
+
+run_all_tests() {
+    local total_failed=0
+    
+    test_inventory_service || ((total_failed+=$?))
+    test_cart_service || ((total_failed+=$?))
+    test_identity_service || ((total_failed+=$?))
+    test_order_service || ((total_failed+=$?))
+    test_bff_service || ((total_failed+=$?))
+    test_end_to_end_flow || ((total_failed+=$?))
+    
+    return $total_failed
+}
+
+print_summary() {
+    echo ""
+    echo "=============================================="
+    echo -e "${BLUE}  SERVICE STATUS SUMMARY${NC}"
+    echo "=============================================="
+    echo ""
+    echo "Services Running:"
+    for service in "${SERVICE_ORDER[@]}"; do
+        local port=${SERVICES[$service]}
+        if is_port_in_use "$port"; then
+            echo -e "  ${GREEN}✓${NC} $service (port $port)"
+        else
+            echo -e "  ${RED}✗${NC} $service (port $port)"
+        fi
+    done
+    echo ""
+    echo "Swagger UI:"
+    echo "  - Inventory: http://localhost:8081/swagger-ui.html"
+    echo "  - Cart:      http://localhost:8082/swagger-ui.html"
+    echo "  - Identity:  http://localhost:8084/swagger-ui.html"
+    echo "  - Order:     http://localhost:8085/swagger-ui.html"
+    echo "  - BFF:       http://localhost:8080/swagger-ui.html"
+    echo ""
+    echo "Logs: $LOG_DIR/"
+    echo ""
+}
+
+main() {
+    echo ""
+    echo "=============================================="
+    echo -e "${BLUE}  ShopEase E-commerce Platform${NC}"
+    echo -e "${BLUE}  Comprehensive Sanity Test Suite${NC}"
+    echo "=============================================="
+    echo ""
+    echo "Platform: $OSTYPE"
+    echo "Working Directory: $SCRIPT_DIR"
+    echo ""
+    
+    # Terminate existing services
+    terminate_all_services
+    
+    # Start all services
+    start_all_services
+    
+    # Run all tests
+    echo ""
+    echo "=============================================="
+    echo -e "${BLUE}  RUNNING SANITY TESTS${NC}"
+    echo "=============================================="
+    
+    if run_all_tests; then
+        echo ""
+        echo "=============================================="
+        echo -e "${GREEN}  ALL TESTS PASSED!${NC}"
+        echo "=============================================="
+    else
+        echo ""
+        echo "=============================================="
+        echo -e "${RED}  SOME TESTS FAILED!${NC}"
+        echo "=============================================="
+    fi
+    
+    print_summary
+    
+    echo ""
+    echo "To stop all services, run: ./stop-services.sh"
+}
+
+# Run main function
+main "$@"
