@@ -24,7 +24,7 @@ for pidfile in pids/*.pid; do
 done
 
 # Also kill by port as backup
-for port in 8080 8081 8082 8084 8085 5173; do
+for port in 8080 8081 8082 8084 8085 8086 5173; do
     pid=$(lsof -ti:$port)
     if [ ! -z "$pid" ]; then
         kill -9 $pid 2>/dev/null

@@ -71,6 +71,9 @@ start_service "identity-service" "identity-service" 8084
 # Start Order Service (Port 8085)
 start_service "order-service" "order-service" 8085
 
+# Start Payment Service (Port 8086)
+start_service "payment-service" "payment-service" 8086
+
 # Start BFF Service (Port 8080)
 start_service "bff-service" "bff-service" 8080
 
@@ -97,6 +100,7 @@ echo "  - Inventory Service: http://localhost:8081 (Swagger: http://localhost:80
 echo "  - Cart Service:      http://localhost:8082 (Swagger: http://localhost:8082/swagger-ui.html)"
 echo "  - Identity Service:  http://localhost:8084 (Swagger: http://localhost:8084/swagger-ui.html)"
 echo "  - Order Service:     http://localhost:8085 (Swagger: http://localhost:8085/swagger-ui.html)"
+echo "  - Payment Service:   http://localhost:8086 (Swagger: http://localhost:8086/swagger-ui.html)"
 echo "  - BFF Service:       http://localhost:8080 (Swagger: http://localhost:8080/swagger-ui.html)"
 echo "  - Frontend:          http://localhost:5173"
 echo ""
